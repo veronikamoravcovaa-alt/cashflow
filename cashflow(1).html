@@ -327,7 +327,13 @@ function renderRows() {
       <td style="text-align:right">${fmt(r.castka)}</td>
       <td style="text-align:right">${fmt(dph)}</td>
       <td style="text-align:right;font-weight:600">${fmt(cel)}</td>
-      <td>${stavBadge(r.stav)}</td>
+      <td>
+        <select onchange="changeStav(${r.id},this.value)" style="font-size:12px;padding:4px 6px;border:1px solid #ddd;border-radius:5px;background:#fff;cursor:pointer">
+          <option value="ocekavana" ${r.stav==='ocekavana'?'selected':''}>&#9203; Plánovaná</option>
+          <option value="vystavena" ${r.stav==='vystavena'?'selected':''}>&#128196; Vystavená</option>
+          <option value="zaplacena" ${r.stav==='zaplacena'?'selected':''}>&#10003; Zaplaceno</option>
+        </select>
+      </td>
       <td><button class="btn btn-sm btn-danger" onclick="delRow(${r.id})">Smazat</button></td>
     </tr>`;
   }).join('');
@@ -400,6 +406,10 @@ function addRow() {
   document.getElementById('f_popis').value='';
   document.getElementById('f_castka').value='';
   save(); render();
+}
+function changeStav(id, val) {
+  const r = rows.find(r=>r.id===id);
+  if(r) { r.stav=val; save(); renderMetrics(); renderMonths(); renderDph(); renderChart(); }
 }
 function delRow(id) {
   if(!confirm('Opravdu smazat tento záznam?')) return;
