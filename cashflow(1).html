@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cashflow přehled</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;font-size:15px;line-height:1.6}
+.topbar{background:#fff;border-bottom:1px solid #e5e5e3;padding:12px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.topbar h1{font-size:16px;font-weight:600;flex:1}
+.api-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.api-row label{font-size:12px;color:#666;white-space:nowrap}
+.api-row input{font-size:12px;padding:5px 10px;border:1px solid #ddd;border-radius:6px;width:260px;font-family:monospace}
+.api-row button{font-size:12px;padding:5px 12px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer}
+.api-row button:hover{background:#f0f0ee}
+.api-status{font-size:11px;color:#888}
+.container{max-width:1100px;margin:0 auto;padding:24px 20px}
+.bank-bar{background:#fff;border:1px solid #e5e5e3;border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.bank-bar label{font-size:13px;color:#555;white-space:nowrap}
+.bank-bar input{font-size:16px;font-weight:500;padding:5px 10px;border:1px solid #ddd;border-radius:6px;width:180px}
+.bank-bar .hint{font-size:11px;color:#aaa;margin-left:auto}
+.tabs{display:flex;gap:0;border-bottom:1px solid #e5e5e3;margin-bottom:20px}
+.tab{padding:9px 20px;font-size:14px;cursor:pointer;background:transparent;border:none;color:#666;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:#1a1a1a;border-bottom:2px solid #2563eb;font-weight:500}
+.tab:hover{color:#1a1a1a}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:700px){.grid4{grid-template-columns:repeat(2,1fr)}}
+.metric{background:#fff;border:1px solid #e5e5e3;border-radius:10px;padding:14px 16px}
+.metric-label{font-size:12px;color:#777;margin-bottom:4px}
+.metric-value{font-size:22px;font-weight:600}
+.metric-sub{font-size:11px;color:#aaa;margin-top:2px}
+.card{background:#fff;border:1px solid #e5e5e3;border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:14px;color:#333}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;border-bottom:1px solid #eee}
+td{padding:8px 10px;border-bottom:1px solid #f0f0ee;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.bg{background:#dcfce7;color:#166534}
+.ba{background:#fef3c7;color:#92400e}
+.bb{background:#dbeafe;color:#1e40af}
+.br{background:#fee2e2;color:#991b1b}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:12px;color:#666;font-weight:500}
+.form-group input,.form-group select{font-size:13px;padding:7px 10px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a1a}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+.btn{padding:8px 16px;font-size:13px;cursor:pointer;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a1a;font-weight:500}
+.btn:hover{background:#f5f5f3}
+.btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.btn-primary:hover{background:#1d4ed8}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-danger{color:#dc2626;border-color:transparent;background:transparent}
+.btn-danger:hover{background:#fee2e2}
+.info{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:13px;color:#1e40af;margin-bottom:14px;line-height:1.6}
+.warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:14px;line-height:1.6}
+.success{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;font-size:13px;color:#166534;margin-bottom:14px}
+.error{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:14px}
+.upload-zone{border:2px dashed #ddd;border-radius:10px;padding:2.5rem;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;margin-bottom:14px}
+.upload-zone:hover,.upload-zone.drag{background:#f0f7ff;border-color:#2563eb}
+.upload-zone input[type=file]{display:none}
+.upload-icon{font-size:40px;margin-bottom:10px;color:#aaa}
+.upload-title{font-size:15px;font-weight:500;color:#555;margin-bottom:4px}
+.upload-hint{font-size:12px;color:#aaa}
+.ai-loading{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f5f5f3;border-radius:8px;font-size:13px;color:#666;margin-bottom:14px}
+.spinner{width:18px;height:18px;border:2px solid #ddd;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.prefill{background:#f9f9f7;border:1px solid #e5e5e3;border-radius:8px;padding:14px;margin-bottom:14px}
+.prefill-title{font-size:12px;color:#666;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+.sum-bar{display:flex;align-items:center;gap:14px;padding:10px 0;font-size:13px;border-top:1px solid #eee;margin-top:6px;flex-wrap:wrap}
+.chart-wrap{position:relative;width:100%;height:250px}
+.legend{display:flex;gap:16px;font-size:12px;color:#666;margin-bottom:10px}
+.legend span{display:flex;align-items:center;gap:5px}
+.ld{width:10px;height:10px;border-radius:2px}
+#tab1,#tab2,#tab3,#tab4{display:none}
+.show{display:block!important}
+.forecast-bar{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 16px;font-size:13px;color:#166534;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📊 Cashflow přehled</h1>
+  <div class="api-row">
+    <label for="apiKeyInput">Anthropic API klíč:</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off">
+    <button onclick="saveApiKey()">Uložit klíč</button>
+    <span class="api-status" id="apiStatus"></span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="bank-bar">
+    <span>🏦</span>
+    <label for="bankInput">Aktuální zůstatek George (Kč):</label>
+    <input type="number" id="bankInput" placeholder="0" oninput="saveBankAndRender()">
+    <button class="btn btn-sm" onclick="saveBankAndRender(true)">Uložit</button>
+    <span class="hint" id="bankDate"></span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('tab1',this)">Přehled</button>
+    <button class="tab" onclick="showTab('tab2',this)">Nahrát fakturu PDF</button>
+    <button class="tab" onclick="showTab('tab3',this)">Evidence</button>
+    <button class="tab" onclick="showTab('tab4',this)">DPH kalendář</button>
+  </div>
+
+  <!-- TAB 1: PŘEHLED -->
+  <div id="tab1" class="show">
+    <div class="grid4" id="metrics"></div>
+    <div id="forecastBar"></div>
+    <div class="card">
+      <div class="card-title">Měsíční přehled příjmů</div>
+      <div class="legend">
+        <span><span class="ld" style="background:#2563eb"></span>Příjem bez DPH</span>
+        <span><span class="ld" style="background:#f59e0b"></span>DPH</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="cashflowChart" role="img" aria-label="Sloupcový graf příjmů po měsících">Příjmy po měsících.</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Detail po měsících</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Měsíc</th><th style="text-align:right">Bez DPH</th><th style="text-align:right">DPH 21 %</th><th style="text-align:right">Celkem</th><th>DPH splatnost</th><th>Faktury</th></tr></thead>
+          <tbody id="monthTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: NAHRÁT PDF -->
+  <div id="tab2">
+    <div class="info">
+      <strong>Jak to funguje:</strong> Nahrajte PDF fakturu z Trivia. Claude ji přečte a automaticky vyplní všechny údaje. Zkontrolujete a uložíte jedním kliknutím.<br>
+      <strong>Potřebujete API klíč</strong> — zadejte ho v pruhu nahoře (uloží se do prohlížeče, příště ho zadávat nemusíte).
+    </div>
+
+    <div class="card">
+      <div class="card-title">Nahrát PDF fakturu</div>
+      <div class="upload-zone" id="dropZone"
+        onclick="document.getElementById('pdfInput').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event)">
+        <input type="file" id="pdfInput" accept=".pdf" onchange="handleFile(this.files[0])">
+        <div class="upload-icon">📄</div>
+        <div class="upload-title">Přetáhněte PDF fakturu sem nebo klikněte pro výběr</div>
+        <div class="upload-hint">Podporuje faktury z Trivia (.pdf)</div>
+      </div>
+      <div id="aiStatus"></div>
+      <div id="prefillArea"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Nebo přidat záznam ručně</div>
+      <div class="form-row">
+        <div class="form-group"><label>Popis / klient</label><input type="text" id="f_popis" placeholder="Trénink — Jan Novák"></div>
+        <div class="form-group"><label>Datum vystavení</label><input type="date" id="f_datum"></div>
+        <div class="form-group"><label>Splatnost (dny)</label><input type="number" id="f_spl" value="14" min="0" max="90"></div>
+        <div class="form-group"><label>Částka bez DPH (Kč)</label><input type="number" id="f_castka" placeholder="5000"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Stav</label>
+          <select id="f_stav">
+            <option value="ocekavana">Plánovaná (nezaplacena)</option>
+            <option value="vystavena">Vystavená faktura</option>
+            <option value="zaplacena">Zaplaceno</option>
+          </select>
+        </div>
+        <div class="form-group" style="justify-content:flex-end;padding-top:18px">
+          <button class="btn btn-primary" onclick="addRow()">+ Přidat záznam</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: EVIDENCE -->
+  <div id="tab3">
+    <div class="card">
+      <div class="card-title">Všechny záznamy</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Popis</th><th>Vystavení</th><th>Uhradit do</th><th style="text-align:right">Bez DPH</th><th style="text-align:right">DPH</th><th style="text-align:right">Celkem</th><th>Stav</th><th></th></tr></thead>
+          <tbody id="rowsTbody"></tbody>
+        </table>
+      </div>
+      <div class="sum-bar">
+        <span style="color:#666">Celkem:</span><strong id="sumCelkem">—</strong>
+        <span style="color:#666;margin-left:8px">Zaplaceno:</span><strong id="sumZapl" style="color:#166534">—</strong>
+        <span style="color:#666">Čeká na úhradu:</span><strong id="sumCeka" style="color:#92400e">—</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: DPH -->
+  <div id="tab4">
+    <div class="warn">
+      <strong>Pravidlo DPH — s.r.o., měsíční plátce:</strong> Přiznání a platba vždy do <strong>25. dne následujícího měsíce</strong> za měsíc, kdy byla faktura <em>vystavena</em>. Nezáleží na tom, kdy zákazník zaplatí.
+    </div>
+    <div class="card">
+      <div class="card-title">Plán odvodu DPH</div>
+      <table>
+        <thead><tr><th>Zdaňovací období</th><th style="text-align:right">Základ DPH</th><th style="text-align:right">DPH k odvedení</th><th>Splatnost platby</th><th>Stav</th></tr></thead>
+        <tbody id="dphTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const SAMPLE = [
+  {id:1,popis:'Trénink skupinový — duben',datum:'2025-04-05',splatnost:14,castka:8000,stav:'zaplacena'},
+  {id:2,popis:'Trénink individuální — Novák',datum:'2025-04-18',splatnost:14,castka:3500,stav:'zaplacena'},
+  {id:3,popis:'Trénink skupinový — květen',datum:'2025-05-03',splatnost:14,castka:8000,stav:'zaplacena'},
+  {id:4,popis:'Trénink individuální — Svoboda',datum:'2025-05-20',splatnost:14,castka:3500,stav:'vystavena'},
+  {id:5,popis:'Trénink skupinový — červen',datum:'2025-06-07',splatnost:14,castka:8000,stav:'vystavena'},
+  {id:6,popis:'Trénink individuální — Horáček',datum:'2025-06-15',splatnost:21,castka:3500,stav:'ocekavana'},
+  {id:7,popis:'Firemní workshop — TechCo',datum:'2025-06-22',splatnost:30,castka:15000,stav:'ocekavana'},
+];
+
+let rows = JSON.parse(localStorage.getItem('cf_rows') || 'null') || SAMPLE;
+let nextId = Math.max(...rows.map(r=>r.id), 0) + 1;
+let bankBalance = parseFloat(localStorage.getItem('cf_bank') || '0') || 0;
+let bankDate = localStorage.getItem('cf_bankdate') || '';
+let apiKey = localStorage.getItem('cf_apikey') || '';
+
+function save() {
+  localStorage.setItem('cf_rows', JSON.stringify(rows));
+  localStorage.setItem('cf_bank', bankBalance);
+  localStorage.setItem('cf_bankdate', bankDate);
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function fmt(n) { return Number(n).toLocaleString('cs-CZ',{minimumFractionDigits:0,maximumFractionDigits:0}) + ' Kč'; }
+function fmtDate(s) { if(!s) return '—'; return new Date(s+'T00:00:00').toLocaleDateString('cs-CZ'); }
+function addDays(s, n) { if(!s) return ''; const d=new Date(s+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function mk(s) { return s ? s.slice(0,7) : ''; }
+function monthLabel(k) {
+  if(!k) return '';
+  const [y,m] = k.split('-');
+  return ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'][parseInt(m)-1] + ' ' + y;
+}
+function nm25(k) {
+  const [y,m] = k.split('-').map(Number);
+  let nm=m+1, ny=y; if(nm>12){nm=1;ny++;}
+  return `${ny}-${String(nm).padStart(2,'0')}-25`;
+}
+function stavBadge(s) {
+  if(s==='zaplacena') return '<span class="badge bg">Zaplaceno</span>';
+  if(s==='vystavena') return '<span class="badge bb">Vystavená</span>';
+  return '<span class="badge ba">Plánovaná</span>';
+}
+
+// ── API KEY ───────────────────────────────────────────────────────────
+function saveApiKey() {
+  const v = document.getElementById('apiKeyInput').value.trim();
+  if(!v.startsWith('sk-ant-')) { alert('API klíč musí začínat sk-ant-'); return; }
+  apiKey = v;
+  localStorage.setItem('cf_apikey', apiKey);
+  document.getElementById('apiStatus').textContent = '✓ Klíč uložen';
+  document.getElementById('apiStatus').style.color = '#166534';
+  setTimeout(()=>{ document.getElementById('apiStatus').textContent=''; }, 3000);
+}
+function loadApiKey() {
+  if(apiKey) {
+    document.getElementById('apiKeyInput').value = apiKey;
+    document.getElementById('apiStatus').textContent = '✓ Klíč načten';
+    document.getElementById('apiStatus').style.color = '#888';
+  }
+}
+
+// ── BANK ──────────────────────────────────────────────────────────────
+function saveBankAndRender(explicit) {
+  const v = parseFloat(document.getElementById('bankInput').value) || 0;
+  bankBalance = v;
+  if(explicit || v) bankDate = new Date().toLocaleString('cs-CZ',{day:'numeric',month:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  save(); render();
+  if(explicit) {
+    const btn = document.querySelector('.bank-bar .btn');
+    btn.textContent = '✓ Uloženo'; setTimeout(()=>{ btn.textContent='Uložit'; }, 1500);
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────
+function render() {
+  if(bankBalance) document.getElementById('bankInput').value = bankBalance;
+  document.getElementById('bankDate').textContent = bankDate ? 'Aktualizováno: '+bankDate : '';
+  renderMetrics(); renderRows(); renderMonths(); renderDph(); renderChart();
+}
+
+function renderMetrics() {
+  const total = rows.reduce((a,r)=>a+r.castka+Math.round(r.castka*0.21),0);
+  const zapl  = rows.filter(r=>r.stav==='zaplacena').reduce((a,r)=>a+r.castka+Math.round(r.castka*0.21),0);
+  const ocek  = rows.filter(r=>r.stav!=='zaplacena').reduce((a,r)=>a+r.castka+Math.round(r.castka*0.21),0);
+  const dph   = rows.reduce((a,r)=>a+Math.round(r.castka*0.21),0);
+  const forecast = bankBalance + ocek;
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Zůstatek George</div><div class="metric-value">${bankBalance?fmt(bankBalance):'—'}</div><div class="metric-sub">${bankDate||'Zadejte výše'}</div></div>
+    <div class="metric"><div class="metric-label">Čeká na příjem</div><div class="metric-value" style="color:#92400e">${fmt(ocek)}</div><div class="metric-sub">vystavené + plánované</div></div>
+    <div class="metric"><div class="metric-label">Výhled (účet + čekající)</div><div class="metric-value" style="color:#166534">${bankBalance||ocek?fmt(forecast):'—'}</div><div class="metric-sub">před odvodem DPH</div></div>
+    <div class="metric"><div class="metric-label">DPH k odvodu celkem</div><div class="metric-value" style="color:#1e40af">${fmt(dph)}</div><div class="metric-sub">ze všech faktur v evidenci</div></div>`;
+
+  const fb = document.getElementById('forecastBar');
+  if(bankBalance && ocek) {
+    const dphPend = rows.filter(r=>r.stav!=='zaplacena').reduce((a,r)=>a+Math.round(r.castka*0.21),0);
+    fb.innerHTML = `<div class="forecast-bar">💡 Výhled po odečtení DPH z čekajících faktur: <strong>${fmt(forecast-dphPend)}</strong> &nbsp;(Zůstatek ${fmt(bankBalance)} + příjmy ${fmt(ocek)} − DPH ${fmt(dphPend)})</div>`;
+  } else { fb.innerHTML=''; }
+}
+
+function renderRows() {
+  const tb = document.getElementById('rowsTbody');
+  if(!rows.length) { tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:2rem;color:#aaa">Žádné záznamy. Nahrajte fakturu nebo přidejte ručně.</td></tr>'; return; }
+  tb.innerHTML = rows.map(r=>{
+    const dph=Math.round(r.castka*0.21), cel=r.castka+dph;
+    const spl=r.datum?addDays(r.datum,r.splatnost):'';
+    return `<tr>
+      <td>${r.popis}</td><td>${fmtDate(r.datum)}</td><td>${fmtDate(spl)}</td>
+      <td style="text-align:right">${fmt(r.castka)}</td>
+      <td style="text-align:right">${fmt(dph)}</td>
+      <td style="text-align:right;font-weight:600">${fmt(cel)}</td>
+      <td>${stavBadge(r.stav)}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="delRow(${r.id})">Smazat</button></td>
+    </tr>`;
+  }).join('');
+  const sum  = rows.reduce((a,r)=>a+r.castka+Math.round(r.castka*0.21),0);
+  const zapl = rows.filter(r=>r.stav==='zaplacena').reduce((a,r)=>a+r.castka+Math.round(r.castka*0.21),0);
+  document.getElementById('sumCelkem').textContent = fmt(sum);
+  document.getElementById('sumZapl').textContent   = fmt(zapl);
+  document.getElementById('sumCeka').textContent   = fmt(sum-zapl);
+}
+
+function renderMonths() {
+  const M={};
+  rows.forEach(r=>{
+    const k=mk(r.datum); if(!k) return;
+    if(!M[k]) M[k]={bez:0,dph:0,sc:{zaplacena:0,vystavena:0,ocekavana:0}};
+    M[k].bez+=r.castka; M[k].dph+=Math.round(r.castka*0.21);
+    M[k].sc[r.stav]=(M[k].sc[r.stav]||0)+1;
+  });
+  const keys=Object.keys(M).sort();
+  document.getElementById('monthTbody').innerHTML = keys.length ? keys.map(k=>{
+    const m=M[k], cel=m.bez+m.dph;
+    const sc=m.sc;
+    const sb=[
+      sc.zaplacena?`<span class="badge bg">${sc.zaplacena}× zaplaceno</span>`:'',
+      sc.vystavena?`<span class="badge bb">${sc.vystavena}× vystavena</span>`:'',
+      sc.ocekavana?`<span class="badge ba">${sc.ocekavana}× plánovaná</span>`:''
+    ].filter(Boolean).join(' ');
+    return `<tr><td><strong>${monthLabel(k)}</strong></td><td style="text-align:right">${fmt(m.bez)}</td><td style="text-align:right;color:#92400e">${fmt(m.dph)}</td><td style="text-align:right;font-weight:600">${fmt(cel)}</td><td><span class="badge ba">${fmtDate(nm25(k))}</span></td><td>${sb}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:#aaa">Žádné záznamy</td></tr>';
+}
+
+function renderDph() {
+  const M={};
+  rows.forEach(r=>{ const k=mk(r.datum); if(!k) return; if(!M[k])M[k]=0; M[k]+=r.castka; });
+  const keys=Object.keys(M).sort(), now=new Date();
+  document.getElementById('dphTbody').innerHTML = keys.map(k=>{
+    const dph=Math.round(M[k]*0.21), spl=nm25(k), paid=new Date(spl+'T00:00:00')<now;
+    return `<tr><td><strong>${monthLabel(k)}</strong></td><td style="text-align:right">${fmt(M[k])}</td><td style="text-align:right;font-weight:600;color:#1e40af">${fmt(dph)}</td><td>${fmtDate(spl)}</td><td>${paid?'<span class="badge bg">Uhrazeno</span>':'<span class="badge ba">Nadcházející</span>'}</td></tr>`;
+  }).join('');
+}
+
+let chartInst = null;
+function renderChart() {
+  const M={};
+  rows.forEach(r=>{ const k=mk(r.datum); if(!k) return; if(!M[k])M[k]={bez:0,dph:0}; M[k].bez+=r.castka; M[k].dph+=Math.round(r.castka*0.21); });
+  const keys=Object.keys(M).sort();
+  if(chartInst) chartInst.destroy();
+  chartInst = new Chart(document.getElementById('cashflowChart'),{
+    type:'bar',
+    data:{labels:keys.map(monthLabel),datasets:[
+      {label:'Bez DPH',data:keys.map(k=>M[k].bez),backgroundColor:'#2563eb',stack:'s'},
+      {label:'DPH',    data:keys.map(k=>M[k].dph), backgroundColor:'#f59e0b',stack:'s'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:30}},
+              y:{ticks:{callback:v=>Math.round(v/1000)+'k Kč'}}}}
+  });
+}
+
+// ── ADD / DELETE ──────────────────────────────────────────────────────
+function addRow() {
+  const p=document.getElementById('f_popis').value.trim();
+  const d=document.getElementById('f_datum').value;
+  const s=parseInt(document.getElementById('f_spl').value)||14;
+  const c=parseFloat(document.getElementById('f_castka').value)||0;
+  const st=document.getElementById('f_stav').value;
+  if(!p||!c){alert('Vyplňte prosím popis a částku.');return;}
+  rows.push({id:nextId++,popis:p,datum:d,splatnost:s,castka:c,stav:st});
+  document.getElementById('f_popis').value='';
+  document.getElementById('f_castka').value='';
+  save(); render();
+}
+function delRow(id) {
+  if(!confirm('Opravdu smazat tento záznam?')) return;
+  rows=rows.filter(r=>r.id!==id); save(); render();
+}
+
+// ── PDF / AI ──────────────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f && f.type==='application/pdf') handleFile(f);
+  else alert('Prosím nahrajte soubor ve formátu PDF.');
+}
+
+async function handleFile(file) {
+  if(!file) return;
+  const status=document.getElementById('aiStatus');
+  const pre=document.getElementById('prefillArea');
+
+  if(!apiKey) {
+    status.innerHTML='<div class="error"><strong>Chybí API klíč.</strong> Zadejte ho v pruhu nahoře a uložte. Získáte ho zdarma na <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.</div>';
+    return;
+  }
+
+  status.innerHTML='<div class="ai-loading"><div class="spinner"></div><span>Claude čte fakturu a extrahuje údaje…</span></div>';
+  pre.innerHTML='';
+
+  try {
+    const b64 = await toBase64(file);
+    // Zkusíme přímé volání, pak fallback na proxy
+    const ENDPOINTS = [
+      { url: 'https://api.anthropic.com/v1/messages', direct: true },
+      { url: 'https://corsproxy.io/?https://api.anthropic.com/v1/messages', direct: false },
+    ];
+
+    const body = JSON.stringify({
+      model:'claude-sonnet-4-5-20251001',
+      max_tokens:1000,
+      messages:[{role:'user',content:[
+        {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+        {type:'text',text:`Jsi účetní asistent. Z této faktury vyextrahuj tyto údaje a vrať POUZE JSON objekt (bez markdown, bez backticks, bez komentářů):
+{
+  "popis": "stručný popis - název odběratele nebo popis plnění (max 60 znaků)",
+  "datum": "datum vystavení ve formátu YYYY-MM-DD",
+  "splatnost": číslo dnů splatnosti jako celé číslo (pokud nenajdeš, použij 14),
+  "castka": základ daně (bez DPH) v Kč jako celé číslo bez mezer
+}
+Vrať pouze JSON, nic jiného.`}
+      ]}]
+    });
+
+    let resp = null;
+    let lastErr = '';
+    for (const ep of ENDPOINTS) {
+      try {
+        const headers = {'Content-Type':'application/json','anthropic-version':'2023-06-01'};
+        if (ep.direct) {
+          headers['x-api-key'] = apiKey;
+          headers['anthropic-dangerous-direct-browser-access'] = 'true';
+        } else {
+          headers['x-api-key'] = apiKey;
+        }
+        resp = await fetch(ep.url, {method:'POST', headers, body});
+        if (resp.ok || resp.status === 400 || resp.status === 401) break; // got a real response
+        lastErr = 'HTTP ' + resp.status;
+        resp = null;
+      } catch(e) {
+        lastErr = e.message;
+        resp = null;
+      }
+    }
+
+    if (!resp) throw new Error('Nepodařilo se připojit k API. ' + lastErr);
+    if (!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'HTTP ' + resp.status);
+    }
+
+    const data=await resp.json();
+    const text=data.content?.map(i=>i.text||'').join('').trim();
+    let parsed;
+    try { parsed=JSON.parse(text.replace(/```json|```/g,'').trim()); }
+    catch(e) { throw new Error('Nepodařilo se přečíst odpověď: '+text.slice(0,200)); }
+
+    status.innerHTML='<div class="success">✓ Faktura úspěšně přečtena. Zkontrolujte a potvrďte údaje níže:</div>';
+    showPrefill(parsed);
+  } catch(err) {
+    status.innerHTML=`<div class="error"><strong>Chyba při čtení faktury:</strong> ${err.message}<br>Zkuste zadat fakturu ručně níže.</div>`;
+  }
+}
+
+function toBase64(file) {
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('Chyba při čtení souboru'));
+    r.readAsDataURL(file);
+  });
+}
+
+function showPrefill(d) {
+  document.getElementById('prefillArea').innerHTML=`
+    <div class="prefill">
+      <div class="prefill-title">Extrahované údaje — upravte podle potřeby:</div>
+      <div class="form-row">
+        <div class="form-group"><label>Popis / klient</label><input type="text" id="pf_popis" value="${d.popis||''}"></div>
+        <div class="form-group"><label>Datum vystavení</label><input type="date" id="pf_datum" value="${d.datum||''}"></div>
+        <div class="form-group"><label>Splatnost (dny)</label><input type="number" id="pf_spl" value="${d.splatnost||14}"></div>
+        <div class="form-group"><label>Částka bez DPH (Kč)</label><input type="number" id="pf_castka" value="${d.castka||''}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Stav</label>
+          <select id="pf_stav">
+            <option value="ocekavana">Plánovaná</option>
+            <option value="vystavena" selected>Vystavená faktura</option>
+            <option value="zaplacena">Zaplaceno</option>
+          </select>
+        </div>
+        <div class="form-group" style="justify-content:flex-end;padding-top:18px">
+          <button class="btn btn-primary" onclick="savePrefill()">✓ Uložit fakturu do evidence</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function savePrefill() {
+  const p=document.getElementById('pf_popis').value.trim();
+  const d=document.getElementById('pf_datum').value;
+  const s=parseInt(document.getElementById('pf_spl').value)||14;
+  const c=parseFloat(document.getElementById('pf_castka').value)||0;
+  const st=document.getElementById('pf_stav').value;
+  if(!p||!c){alert('Vyplňte alespoň popis a částku.');return;}
+  rows.push({id:nextId++,popis:p,datum:d,splatnost:s,castka:c,stav:st});
+  document.getElementById('aiStatus').innerHTML='<div class="success">✓ Faktura uložena do evidence.</div>';
+  document.getElementById('prefillArea').innerHTML='';
+  document.getElementById('pdfInput').value='';
+  save(); render();
+  setTimeout(()=>{ document.getElementById('aiStatus').innerHTML=''; },3000);
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  ['tab1','tab2','tab3','tab4'].forEach(t=>{ const el=document.getElementById(t); if(el)el.classList.remove('show'); });
+  btn.classList.add('active');
+  document.getElementById(id).classList.add('show');
+  if(id==='tab1') setTimeout(renderChart, 50);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+loadApiKey();
+render();
+</script>
+</body>
+</html>
