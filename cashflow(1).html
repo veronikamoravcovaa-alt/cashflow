@@ -440,18 +440,20 @@ async function handleFile(file) {
 
   try {
     const b64 = await toBase64(file);
-    // Zkusíme přímé volání, pak fallback na proxy
-    const ENDPOINTS = [
-      { url: 'https://api.anthropic.com/v1/messages', direct: true },
-      { url: 'https://corsproxy.io/?https://api.anthropic.com/v1/messages', direct: false },
-    ];
-
-    const body = JSON.stringify({
-      model:'claude-sonnet-4-5-20251001',
-      max_tokens:1000,
-      messages:[{role:'user',content:[
-        {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-        {type:'text',text:`Jsi účetní asistent. Z této faktury vyextrahuj tyto údaje a vrať POUZE JSON objekt (bez markdown, bez backticks, bez komentářů):
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1000,
+        messages: [{role:'user', content: [
+          {type:'document', source:{type:'base64', media_type:'application/pdf', data:b64}},
+          {type:'text', text:`Jsi účetní asistent. Z této faktury vyextrahuj tyto údaje a vrať POUZE JSON objekt (bez markdown, bez backticks, bez komentářů):
 {
   "popis": "stručný popis - název odběratele nebo popis plnění (max 60 znaků)",
   "datum": "datum vystavení ve formátu YYYY-MM-DD",
@@ -459,31 +461,10 @@ async function handleFile(file) {
   "castka": základ daně (bez DPH) v Kč jako celé číslo bez mezer
 }
 Vrať pouze JSON, nic jiného.`}
-      ]}]
+        ]}]
+      })
     });
 
-    let resp = null;
-    let lastErr = '';
-    for (const ep of ENDPOINTS) {
-      try {
-        const headers = {'Content-Type':'application/json','anthropic-version':'2023-06-01'};
-        if (ep.direct) {
-          headers['x-api-key'] = apiKey;
-          headers['anthropic-dangerous-direct-browser-access'] = 'true';
-        } else {
-          headers['x-api-key'] = apiKey;
-        }
-        resp = await fetch(ep.url, {method:'POST', headers, body});
-        if (resp.ok || resp.status === 400 || resp.status === 401) break; // got a real response
-        lastErr = 'HTTP ' + resp.status;
-        resp = null;
-      } catch(e) {
-        lastErr = e.message;
-        resp = null;
-      }
-    }
-
-    if (!resp) throw new Error('Nepodařilo se připojit k API. ' + lastErr);
     if (!resp.ok) {
       const err = await resp.json().catch(()=>({}));
       throw new Error(err.error?.message || 'HTTP ' + resp.status);
